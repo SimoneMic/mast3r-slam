@@ -67,7 +67,7 @@ __global__ void refine_matches_kernel(
             u_new = u;
             v_new = v;
           }
-    
+
         }
       }
     }
@@ -91,16 +91,16 @@ std::vector<torch::Tensor> refine_matches_cuda(
   const auto batch_size = p1.size(0);
   const auto n = p1.size(1);
 
-  const dim3 blocks((n + BLOCK - 1) / BLOCK, 
+  const dim3 blocks((n + BLOCK - 1) / BLOCK,
                     batch_size);
-  
+
   const dim3 threads(BLOCK);
 
   auto opts = p1.options();
   torch::Tensor p1_new = torch::zeros(
     {batch_size, n, 2}, opts);
 
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11.type(), "refine_matches_kernel", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(D11.scalar_type(), "refine_matches_kernel", ([&] {
     refine_matches_kernel<scalar_t><<<blocks, threads>>>(
       D11.packed_accessor32<scalar_t,4,torch::RestrictPtrTraits>(),
       D21.packed_accessor32<scalar_t,3,torch::RestrictPtrTraits>(),
@@ -287,9 +287,9 @@ std::vector<torch::Tensor> iter_proj_cuda(
   const auto batch_size = p_init.size(0);
   const auto n = p_init.size(1);
 
-  const dim3 blocks((n + BLOCK - 1) / BLOCK, 
+  const dim3 blocks((n + BLOCK - 1) / BLOCK,
                     batch_size);
-  
+
   const dim3 threads(BLOCK);
 
   auto opts = p_init.options();
