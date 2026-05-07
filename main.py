@@ -151,14 +151,14 @@ if __name__ == "__main__":
     datetime_now = str(datetime.datetime.now()).replace(" ", "_")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", default="datasets/tum/rgbd_dataset_freiburg1_desk")
+    parser.add_argument("--dataset", default="datasets/rosbags/ergocub_floor0_newmap_0")
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--save-as", default="default")
     parser.add_argument("--no-viz", action="store_true")
     parser.add_argument("--calib", default="")
 
     args = parser.parse_args()
-
+    # hardcode values
     load_config(args.config)
     print(args.dataset)
     print(config)
