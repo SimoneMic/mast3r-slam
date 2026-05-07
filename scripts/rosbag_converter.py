@@ -143,7 +143,31 @@ for i, (ts, rgb_msg) in enumerate(rgb_data):
         continue
 
     # ==== SAVE RGB ====
-    rgb_img = np.frombuffer(rgb_msg.data, dtype=np.uint8).reshape(rgb_msg.height, rgb_msg.width, 3).copy()
+    if rgb_msg.encoding == "rgb8":
+        rgb_img = np.frombuffer(rgb_msg.data, dtype=np.uint8).reshape(
+            rgb_msg.height, rgb_msg.width, 3
+        ).copy()
+        rgb_img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)  #Wrong encoding in msg rgb8 is bgr8 in reality
+
+    elif rgb_msg.encoding == "bgr8":
+        bgr_img = np.frombuffer(rgb_msg.data, dtype=np.uint8).reshape(
+            rgb_msg.height, rgb_msg.width, 3
+        ).copy()
+        rgb_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
+
+    elif rgb_msg.encoding == "bgra8":
+        bgra_img = np.frombuffer(rgb_msg.data, dtype=np.uint8).reshape(
+            rgb_msg.height, rgb_msg.width, 4
+        ).copy()
+        bgr_img = bgra_img[:, :, :3]
+        rgb_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
+
+    elif rgb_msg.encoding == "rgba8":
+        rgba_img = np.frombuffer(rgb_msg.data, dtype=np.uint8).reshape(
+            rgb_msg.height, rgb_msg.width, 4
+        ).copy()
+        rgb_img = rgba_img[:, :, :3]  # assuming already RGB order
+    #rgb_img = np.frombuffer(rgb_msg.data, dtype=np.uint8).reshape(rgb_msg.height, rgb_msg.width, 3).copy()
     rgb_name = f"{ts:.6f}.png"
     write_ok = cv2.imwrite(f"{OUTPUT_DIR}/rgb/{rgb_name}", rgb_img)
     if not write_ok:
@@ -151,8 +175,6 @@ for i, (ts, rgb_msg) in enumerate(rgb_data):
 
     # ==== SAVE DEPTH ====
     depth_img = np.frombuffer(depth_msg.data, dtype=np.float32).reshape(depth_msg.height, depth_msg.width).copy()
-    if depth_img.dtype != np.uint16:
-        depth_img = (depth_img * 1000).astype(np.uint16)
 
     depth_name = f"{ts:.6f}.png"
     write_ok = cv2.imwrite(f"{OUTPUT_DIR}/depth/{depth_name}", depth_img)
