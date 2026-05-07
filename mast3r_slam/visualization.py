@@ -95,7 +95,7 @@ class Window(WindowEvents):
         self.main2viz = main2viz
         self.viz2main = viz2main
 
-    def render(self, t: float, frametime: float):
+    def on_render(self, t: float, frametime: float):
         self.viewport.use()
         self.ctx.enable(moderngl.DEPTH_TEST)
         if self.culling:
@@ -416,7 +416,8 @@ def run_visualization(cfg, states, keyframes, main2viz, viz2main) -> None:
     # Avoid the event assigning in the property setter for now
     # We want the even assigning to happen in WindowConfig.__init__
     # so users are free to assign them in their own __init__.
-    window._config = weakref.ref(window_config)
+    #window._config = weakref.ref(window_config)
+    window.config = window_config
 
     # Swap buffers once before staring the main loop.
     # This can trigged additional resize events reporting
