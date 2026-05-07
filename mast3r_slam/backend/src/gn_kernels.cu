@@ -760,7 +760,7 @@ std::vector<torch::Tensor> gauss_newton_points_cuda(
   // For debugging outputs
   torch::Tensor dx;
 
-  torch::Tensor delta_norm;
+  //torch::Tensor delta_norm;
 
   for (int itr=0; itr<max_iter; itr++) {
 
@@ -799,8 +799,8 @@ std::vector<torch::Tensor> gauss_newton_points_cuda(
 
     // Termination criteria
     // Need to specify this second argument otherwise ambiguous function call...
-    delta_norm = torch::linalg::linalg_norm(dx, std::optional<c10::Scalar>(), {}, false, {});
-    if (delta_norm.item<float>() < delta_thresh) {
+    auto delta_norm = dx.norm().item<double>();
+    if (delta_norm < delta_thresh) {
       break;
     }
         
@@ -1176,7 +1176,7 @@ std::vector<torch::Tensor> gauss_newton_rays_cuda(
   // For debugging outputs
   torch::Tensor dx;
 
-  torch::Tensor delta_norm;
+  //torch::Tensor delta_norm;
 
   for (int itr=0; itr<max_iter; itr++) {
 
@@ -1216,8 +1216,8 @@ std::vector<torch::Tensor> gauss_newton_rays_cuda(
 
     // Termination criteria
     // Need to specify this second argument otherwise ambiguous function call...
-    delta_norm = torch::linalg::linalg_norm(dx, std::optional<c10::Scalar>(), {}, false, {});
-    if (delta_norm.item<float>() < delta_thresh) {
+    auto delta_norm = dx.norm().item<double>();
+    if (delta_norm < delta_thresh) {
       break;
     }
         
@@ -1585,7 +1585,7 @@ std::vector<torch::Tensor> gauss_newton_calib_cuda(
   // For debugging outputs
   torch::Tensor dx;
 
-  torch::Tensor delta_norm;
+  //torch::Tensor delta_norm;
 
   for (int itr=0; itr<max_iter; itr++) {
 
@@ -1626,8 +1626,8 @@ std::vector<torch::Tensor> gauss_newton_calib_cuda(
 
     // Termination criteria
     // Need to specify this second argument otherwise ambiguous function call...
-    delta_norm = torch::linalg::linalg_norm(dx, std::optional<c10::Scalar>(), {}, false, {});
-    if (delta_norm.item<float>() < delta_thresh) {
+    auto delta_norm = dx.norm().item<float>();
+    if (delta_norm < delta_thresh) {
       break;
     }
         
