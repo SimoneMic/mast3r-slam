@@ -1,16 +1,16 @@
 use_calib: False
 single_thread: False
 dataset:
-  subsample: 1
+  subsample: 3  #1
   img_downsample: 1
   center_principle_point: True
 
 matching:
-  max_iter: 10
+  max_iter: 20  #10
   lambda_init: 1e-8
-  convergence_thresh: 1e-6
-  dist_thresh: 1e-1 # distance in 3D space
-  radius: 3
+  convergence_thresh: 1e-7  #1e-6
+  dist_thresh: 3e-1 # distance in 3D space 1e-1
+  radius: 5 #3
   dilation_max: 5 # Right now starts from max and iteratively decreases until 1
 
 tracking:
@@ -34,7 +34,7 @@ tracking:
 
 local_opt:
   pin: 1
-  window_size: 1e+6   
+  window_size: 1e+6
   C_conf: 0.0
   Q_conf: 1.5
   min_match_frac: 0.1
