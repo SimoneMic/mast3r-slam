@@ -319,6 +319,7 @@ class Mast3rSlamNode(Node):
             self.i += 1
             return
 
+        add_new_kf = False
         if mode == Mode.TRACKING:
             add_new_kf, match_info, try_reloc = self.tracker.track(frame)
             if try_reloc:
