@@ -244,7 +244,10 @@ def _resize_pil_image(img, long_edge_size):
 def resize_img(img, size, square_ok=False, return_transformation=False):
     assert size == 224 or size == 512
     # numpy to PIL format
-    img = PIL.Image.fromarray(np.uint8(img * 255))
+    if img.dtype == np.uint8:
+        img = PIL.Image.fromarray(np.uint8(img))
+    else:
+        img = PIL.Image.fromarray(np.uint8(img * 255))
     W1, H1 = img.size
     if size == 224:
         # resize short side to 224 (then crop)
