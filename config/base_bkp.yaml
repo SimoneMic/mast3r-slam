@@ -23,7 +23,7 @@ tracking:
   huber: 1.345
   match_frac_thresh: 0.333
   sigma_ray: 0.007
-  sigma_dist: 2e+1
+  sigma_dist: 1e+1
   sigma_pixel: 1.0
   sigma_depth: 1e+1 # NOTE: log-depth!
   sigma_point: 0.05
@@ -62,7 +62,7 @@ local_opt:
   # Noise scale for the distance/along-ray or point-to-ray distance component in uncalibrated ray optimization. 
   # It is paired with sigma_ray in the ray GN.
   # Increasing = Distance inconsistency matters less. Good when MASt3R metric depth is noisy; less scale/depth correction.
-  sigma_dist: 7 # 1e+1
+  sigma_dist: 10 # 1e+1
   # Pixel reprojection noise scale in calibrated mode. The calibrated GN solver takes sigma_pixel and sigma_depth.
   # Increasing = Reprojection errors are trusted less. More tolerant to calibration error / rolling shutter / motion blur, but less precise pose refinement.
   sigma_pixel: 0.7 #1.0
@@ -71,7 +71,7 @@ local_opt:
   sigma_depth: 1e+1 # NOTE: log-depth!
   # Noise scale for direct 3D point-to-point consistency. The backend exposes gauss_newton_points with sigma_point.
   # Increasing = Point agreement is softer. More robust to noisy pointmaps, but less tight reconstruction.
-  sigma_point: 0.05 #0.05
+  sigma_point: 0.05
   # Convergence threshold on the norm of the update step. Backend GN solvers take delta_thresh; smaller means “keep iterating until updates are extremely tiny,” subject to max_iter.
   delta_norm: 1e-8
   use_cuda: True
