@@ -160,7 +160,7 @@ class Mast3rSlamNode(Node):
             self
     ):
         super().__init__("Mast3rSlamNode")
-        self.declare_parameter('img_topic_name', "/camera/rgbd/img")
+        self.declare_parameter('img_topic_name', "/camera/rgbd/img")     #  ergoCub: "/camera/rgbd/img" R1: "/cer/realsense_repeater/color_image"
         self.declare_parameter('enable_visualizer', True)
         # Name of the rgb image topic
         img_topic = self.get_parameter('img_topic_name').value
@@ -181,11 +181,10 @@ class Mast3rSlamNode(Node):
         self.datetime_now = str(datetime.datetime.now()).replace(" ", "_")
 
         self.parser = argparse.ArgumentParser()
-        #parser.add_argument("--dataset", default="datasets/rosbags/ergocub_floor0_newmap_0")
         self.parser.add_argument("--config", default="config/base.yaml")
         self.parser.add_argument("--save-as", default="default")
         self.parser.add_argument("--no-viz", action="store_true")
-        self.parser.add_argument("--calib", default="")
+        self.parser.add_argument("--calib", default="config/intrinsics.yaml")
 
         self.args = self.parser.parse_args()
         # hardcode values
@@ -218,32 +217,19 @@ class Mast3rSlamNode(Node):
 
         self.K = None
 
-        if self.args.calib:
-            print("calibration not yet supported")
-            return
+        if self.config["use_calib"]:
             with open(self.args.calib, "r") as f:
                 intrinsics = yaml.load(f, Loader=yaml.SafeLoader)
-            config["use_calib"] = True
-            dataset.use_calibration = True
-            dataset.camera_intrinsics = Intrinsics.from_calib(
-                dataset.img_size,
+            camera_intrinsics = Intrinsics.from_calib(
+                512,
                 intrinsics["width"],
                 intrinsics["height"],
                 intrinsics["calibration"],
             )
-
-            has_calib = dataset.has_calib()
-            use_calib = config["use_calib"]
-
-            if use_calib and not has_calib:
-                print("[Warning] No calibration provided for this dataset!")
-                sys.exit(0)
-            
-            if use_calib:
-                K = torch.from_numpy(dataset.camera_intrinsics.K_frame).to(
-                    device, dtype=torch.float32
-                )
-            keyframes.set_intrinsics(K)
+            self.K = torch.from_numpy(camera_intrinsics.K_frame).to(
+                self.device, dtype=torch.float32
+            )
+            self.keyframes.set_intrinsics(self.K)
 
         # remove the trajectory from the previous run
         #if dataset.save_results:
