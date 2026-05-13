@@ -22,7 +22,7 @@ tracking:
   delta_norm: 1e-3
   huber: 1.345
   match_frac_thresh: 0.333
-  sigma_ray: 0.003
+  sigma_ray: 0.007
   sigma_dist: 1e+1
   sigma_pixel: 1.0
   sigma_depth: 1e+1 # NOTE: log-depth!
@@ -33,19 +33,46 @@ tracking:
   filtering_score: median # median, mean (only used for filtering_mode=best_score)
 
 local_opt:
+  # Number of early/key reference poses kept fixed during optimization. 
+  # This anchors the graph gauge freedom: monocular SLAM has arbitrary global coordinate frame / scale, so at least one pose usually needs to be fixed.
   pin: 1
+  # Size of the local optimization window. With such a huge value, it effectively behaves like “optimize almost all available keyframes” 
   window_size: 1e+6
+  # Confidence threshold on MASt3R pointmap confidence C. Matches with confidence below this are rejected. 
+  # The tracker code uses Cf > C_conf and Ck > C_conf to decide valid optimization matches; 
+  # the same threshold type is passed to backend GN solvers as C_thresh.
+  # Increasing = Stricter filtering. Fewer but cleaner constraints; can improve robustness in bad predictions, but may lose tracking/optimization if too few matches remain.
   C_conf: 0.0
+  # Threshold on pair/match quality Q. In tracking, Qk = sqrt(Qff[idx] * Qkf) and matches require Qk > Q_conf; backend solvers also receive Q_thresh.
+  # Increasing = Keeps only high-quality correspondences. More robust, but can reject useful matches in motion blur, low texture, or wide-baseline views.
   Q_conf: 1.5
-  min_match_frac: 0.1
+  # Minimum fraction of valid matches required to accept a factor / optimization relation.
+  # Increasing = More conservative. Fewer weak keyframe edges; can reduce catastrophic bad constraints, but may miss loop closures or skip optimization links.
+  min_match_frac: 0.1 #0.1
+  # If made positive/less negative: stricter image-bound checking. Fewer edge/outside projections, more stable but may discard useful constraints near borders.
   pixel_border: -10 # Only in calib (negative means allow pixels outside image up to that distance)
   depth_eps: 1e-6 # Only in calib case
-  max_iters: 10
-  sigma_ray: 0.003
-  sigma_dist: 1e+1
+  # Maximum Gauss–Newton iterations for local optimization.
+  max_iters: 20 #10
+  # Robust/noise scale for the ray direction residual in uncalibrated optimization. 
+  # The backend exposes gauss_newton_rays with sigma_ray and sigma_dist.
+  # Smaller sigma = ray agreement is enforced harder. Can improve accuracy if matches are clean, but can become brittle/noisy.
+  # Larger sigma = ray angular/directional errors are penalized less. More tolerant, smoother, but weaker pose correction.
+  sigma_ray: 0.007
+  # Noise scale for the distance/along-ray or point-to-ray distance component in uncalibrated ray optimization. 
+  # It is paired with sigma_ray in the ray GN.
+  # Increasing = Distance inconsistency matters less. Good when MASt3R metric depth is noisy; less scale/depth correction.
+  sigma_dist: 10 # 1e+1
+  # Pixel reprojection noise scale in calibrated mode. The calibrated GN solver takes sigma_pixel and sigma_depth.
+  # Increasing = Reprojection errors are trusted less. More tolerant to calibration error / rolling shutter / motion blur, but less precise pose refinement.
   sigma_pixel: 1.0
+  # Log-depth residual noise scale in calibrated mode; config notes “log-depth”.
+  # Increasing = Depth consistency is weakly enforced. Safer when MASt3R depth is noisy; less dense-map consistency.
   sigma_depth: 1e+1 # NOTE: log-depth!
+  # Noise scale for direct 3D point-to-point consistency. The backend exposes gauss_newton_points with sigma_point.
+  # Increasing = Point agreement is softer. More robust to noisy pointmaps, but less tight reconstruction.
   sigma_point: 0.05
+  # Convergence threshold on the norm of the update step. Backend GN solvers take delta_thresh; smaller means “keep iterating until updates are extremely tiny,” subject to max_iter.
   delta_norm: 1e-8
   use_cuda: True
 
