@@ -1,0 +1,171 @@
+# SPDX-FileCopyrightText: 2026 Humanoid Sensing and Perception, Istituto Italiano di Tecnologia
+# SPDX-License-Identifier: BSD-3-Clause
+# Author: Simone Micheletti
+
+FROM nvidia/cuda:12.8.0-devel-ubuntu24.04
+
+ARG RELEASE
+ARG LAUNCHPAD_BUILD_ARCH
+ENV USER=user1
+ENV TORCH_CUDA_ARCH_LIST="8.6"
+ENV FORCE_CUDA=1
+ARG PASSWORD=user1
+SHELL ["/bin/bash", "-c"]
+RUN ln -fs /usr/share/zoneinfo/Europe/Rome /etc/localtime && \
+    apt update &&\
+    apt install --no-install-recommends -y -qq sudo git cmake && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN addgroup ${USER} \
+    && useradd -ms /bin/bash ${USER} -g ${USER} \
+    && echo "${USER}:${PASSWORD}" | chpasswd \
+    && usermod -a -G sudo ${USER} \
+    && sed -i.bak -e 's/%sudo\s\+ALL=(ALL\(:ALL\)\?)\s\+ALL/%sudo ALL=NOPASSWD:ALL/g' /etc/sudoers
+
+USER ${USER}
+WORKDIR /home/${USER}
+
+RUN sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install ffmpeg libsm6 libxext6 -y
+
+# ROS2 Install
+ENV ROS_DISTRO=jazzy
+RUN sudo apt update && sudo apt install -y locales && sudo locale-gen en_US en_US.UTF-8 \
+    && sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+    && export LANG=en_US.UTF-8
+
+RUN sudo apt install software-properties-common -y\
+    && sudo add-apt-repository universe \
+    && sudo apt update && sudo apt install curl -y
+
+RUN export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}') && \
+    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb" && \
+    sudo apt install /tmp/ros2-apt-source.deb
+
+RUN sudo apt update && sudo apt install ros-$ROS_DISTRO-ros-base \
+    ros-$ROS_DISTRO-sensor-msgs ros-$ROS_DISTRO-geometry-msgs \
+    ros-$ROS_DISTRO-action-msgs ros-$ROS_DISTRO-actionlib-msgs ros-$ROS_DISTRO-nav2-rviz-plugins \
+    ros-$ROS_DISTRO-nav2-msgs ros-$ROS_DISTRO-nav2-simple-commander ros-$ROS_DISTRO-rviz2 ros-dev-tools ros-$ROS_DISTRO-test-msgs -y
+
+RUN sudo apt update && sudo apt install ros-$ROS_DISTRO-rmw-cyclonedds-cpp -y
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/${USER}/.bashrc
+
+# VS code
+RUN wget -O- https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor | sudo tee /usr/share/keyrings/vscode.gpg && \
+    echo deb [arch=amd64 signed-by=/usr/share/keyrings/vscode.gpg] https://packages.microsoft.com/repos/vscode stable main | sudo tee /etc/apt/sources.list.d/vscode.list
+RUN sudo apt update && sudo apt install -y code
+# Install VisualStudio Code extensions
+RUN code --install-extension ms-vscode.cpptools \
+		 --install-extension ms-vscode.cpptools-themes \
+		 --install-extension ms-vscode.cmake-tools \
+         --install-extension ms-python.python \
+         --install-extension eamodio.gitlens
+
+# Git Setup
+ARG GIT_USERNAME
+ARG GIT_USER_EMAIL
+ARG GIT_TOKEN
+RUN git config --global user.name ${GIT_USERNAME} && git config --global user.email ${GIT_USER_EMAIL}
+# Installing visual-language-navigation
+RUN git clone https://${GIT_TOKEN}@github.com/hsp-iit/visual-language-navigation
+RUN sudo apt update && sudo apt install -y python3-pip
+# Manually install requirements
+RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128 --break-system-packages
+RUN pip3 install hydra-core gdown openai-clip  h5py timm pyvisgraph pytorch_lightning \
+    "transformers<5" opencv-python matplotlib open3d "numpy >= 2" \
+    odfpy openai flask_socketio accelerate gradio rerun torch_scatter einops --break-system-packages
+RUN echo "export PYTHONPATH=$PYTHONPATH:/home/${USER}/visual-language-navigation" >> /home/${USER}/.bashrc
+# Env Setup
+ENV PYTHONPATH=$"${PYTHONPATH}:/home/${USER}/visual-language-navigation"
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/${USER}/.bashrc
+
+# YARP Install
+RUN sudo apt-get install -y build-essential cmake-curses-gui \
+    libeigen3-dev \
+    libace-dev \
+    libedit-dev \
+    libsqlite3-dev \
+    libtinyxml-dev \
+    qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev \
+    qml-module-qtquick2 qml-module-qtquick-window2 \
+    qml-module-qtmultimedia qml-module-qtquick-dialogs \
+    qml-module-qtquick-controls qml-module-qt-labs-folderlistmodel \
+    qml-module-qt-labs-settings \
+    libqcustomplot-dev \
+    libgraphviz-dev \
+    libjpeg-dev \
+    gedit \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-libav
+RUN git clone https://github.com/robotology/ycm-cmake-modules && cd ycm-cmake-modules && mkdir build && cd build && cmake .. && sudo make install -j8
+RUN sudo apt install -y libace-dev gdb &&\
+    git clone https://github.com/robotology/yarp && cd yarp && git switch yarp-3.12 && mkdir build && cd build && cmake -DENABLE_yarpcar_mjpeg=ON -DENABLE_yarppm_depthimage_compr=ON .. && sudo make install -j12
+RUN sudo ln -s /usr/local/share/bash-completion/completions/yarp /usr/share/bash-completion/completions && \
+    sudo apt install -y glpk-doc glpk-utils libglpk-dev libglpk40
+ENV YARP_COLORED_OUTPUT=1
+ENV YARP_DATA_DIRS=/usr/local
+# Yarp devices ros2
+RUN git clone https://github.com/robotology/yarp-devices-ros2 && \
+    cd yarp-devices-ros2/ros2_interfaces_ws && \
+    git checkout v2.0.0 && \
+    source /opt/ros/$ROS_DISTRO/setup.sh && colcon build && \
+    cd .. && mkdir build && cd build && \
+    source /opt/ros/$ROS_DISTRO/setup.bash && source /home/$USER/yarp-devices-ros2/ros2_interfaces_ws/install/setup.bash && cmake .. -DYARP_ROS2_USE_SYSTEM_map2d_nws_ros2_msgs=ON -DYARP_ROS2_USE_SYSTEM_yarp_control_msgs=ON && make -j8 && \
+    echo "source /home/$USER/yarp-devices-ros2/ros2_interfaces_ws/install/local_setup.bash" >> ~/.bashrc
+ENV YARP_DATA_DIRS=${YARP_DATA_DIRS}:/home/$USER/yarp-devices-ros2/build/share/yarp:/home/$USER/yarp-devices-ros2/build/share/yarp-devices-ros2
+
+# Ros2 interfaces and checkpoints setup
+RUN cd visual-language-navigation && git fetch && git switch feat_enc_refactoring && git pull && \
+    source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build --symlink-install && \
+    echo "source /home/${USER}/visual-language-navigation/install/local_setup.bash" >> /home/${USER}/.bashrc
+
+# Weights download for radio
+RUN cd visual-language-navigation/docker && \
+    python3 download_radio_ckp.py
+
+# mast3r-slam
+RUN git clone https://github.com/SimoneMic/mast3r-slam --recursive
+RUN cd mast3r-slam && git pull && export FORCE_CUDA=1 && export CUDA_HOME="/usr/local/cuda" &&\
+    pip3 install -e thirdparty/mast3r --break-system-packages &&\
+    pip3 install -e thirdparty/in3d --break-system-packages &&\
+    pip3 install --no-build-isolation -e . --break-system-packages
+# Checkpoints
+RUN cd mast3r-slam && \
+    mkdir -p checkpoints/ &&\
+    wget https://download.europe.naverlabs.com/ComputerVision/MASt3R/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth -P checkpoints/ &&\
+    wget https://download.europe.naverlabs.com/ComputerVision/MASt3R/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_trainingfree.pth -P checkpoints/ &&\
+    wget https://download.europe.naverlabs.com/ComputerVision/MASt3R/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_codebook.pkl -P checkpoints/
+
+RUN cd visual-language-navigation && git pull && source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build --symlink-install
+
+ENV YARP_DATA_DIRS=${YARP_DATA_DIRS}:/usr/local:/home/${USER}/yarp-devices-ros2/build/share/yarp:/home/${USER}/yarp-devices-ros2/build/share/yarp-devices-ros2
+ENV CONDA_DIR=/opt/conda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
+    && sudo bash /tmp/miniconda.sh -b -p $CONDA_DIR \
+    && rm /tmp/miniconda.sh
+
+RUN export PATH=${CONDA_DIR}/bin:${PATH} && \
+    conda config --remove channels defaults || true && \
+    conda config --add channels conda-forge && \
+    conda config --set channel_priority strict
+
+RUN export PATH=${CONDA_DIR}/bin:${PATH} && \
+    conda create -n vggt-slam --override-channels -c conda-forge python=3.11 -y
+
+#ENV PATH=${CONDA_DIR}/bin:${PATH}
+RUN export PATH=${CONDA_DIR}/bin:${PATH} && git clone https://github.com/MIT-SPARK/VGGT-SLAM vggt-slam && \
+    conda run -n vggt-slam bash -c "\
+        cd vggt-slam && \
+        chmod +x setup.sh && \
+        ./setup.sh"
+
+
+
+# Cleanup
+RUN echo "alias launch_vl_map_builder='ros2 launch visual_language_navigation build_map.launch.py sigterm_timeout:=120 sigkill_timeout:=130'" >> ~/.bashrc
+RUN sudo apt update && sudo apt install -y iproute2 unzip terminator bash-completion locate
+CMD ["/bin/bash"]
